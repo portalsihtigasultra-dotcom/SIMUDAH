@@ -302,12 +302,17 @@ pub fn ListDataHujan() -> impl IntoView {
                                                                 >
                                                                     "Edit"
                                                                 </A>
-                                                                <button on:click=move |_| del(d_id) style="color: red">"Hapus"</button>
+                                                                <button on:click=move |_| del(d_id) style="color: red; margin-right: 8px">"Hapus"</button>
                                                             }.into_any()
                                                         } else {
                                                             view! { <span style="color: #999">"-"</span> }.into_any()
                                                         }
                                                     }}
+                                                    <A href={format!("/data-hujan/{}/log", d_id)}
+                                                        attr:style="color: #1a1a2e; font-size: 0.9em"
+                                                    >
+                                                        "Log"
+                                                    </A>
                                                 </td>
                                             </tr>
                                         }
@@ -687,6 +692,85 @@ pub fn ValidasiData() -> impl IntoView {
                                                 </button>
                                             </div>
                                         </td>
+                                    </tr>
+                                }
+                            }).collect::<Vec<_>>()}
+                        </tbody>
+                    </table>
+                }.into_any()
+            }}
+        </div>
+    }
+}
+
+#[component]
+pub fn LogMutuData() -> impl IntoView {
+    let auth = use_context::<AuthContext>().expect("AuthContext not found");
+    let params = use_params_map();
+    let id = move || {
+        params
+            .get()
+            .get("id")
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(0)
+    };
+
+    let (logs, set_logs) = signal(Vec::new());
+    let (loading, set_loading) = signal(true);
+    let (error, set_error) = signal(String::new());
+
+    {
+        let token = auth.token.get();
+        let data_id = id();
+        set_loading.set(true);
+        spawn_local(async move {
+            if let Some(t) = token {
+                match api::list_log_mutu(&t, data_id).await {
+                    Ok(list) => set_logs.set(list),
+                    Err(e) => set_error.set(e),
+                }
+                set_loading.set(false);
+            }
+        });
+    }
+
+    view! {
+        <div>
+            <A href="/data-hujan" attr:style="display: inline-block; margin-bottom: 16px; color: #1a1a2e">
+                "&larr; Kembali"
+            </A>
+            <h2>"Riwayat Mutu Data"</h2>
+
+            {move || {
+                if loading.get() {
+                    return view! { <p>"Memuat..."</p> }.into_any();
+                }
+                let msg = error.get();
+                if !msg.is_empty() {
+                    return view! { <p style="color: red">{msg}</p> }.into_any();
+                }
+                let items = logs.get();
+                if items.is_empty() {
+                    return view! { <p>"Belum ada riwayat perubahan."</p> }.into_any();
+                }
+                view! {
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 16px">
+                        <thead>
+                            <tr style="background: #f5f5f5; text-align: left">
+                                <th style="padding: 8px; border: 1px solid #ddd">"Waktu"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Status Sebelum"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Status Sesudah"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Catatan"</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.into_iter().map(|log| {
+                                view! {
+                                    <tr>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{log.created_at.clone()}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{log.status_sebelum}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{log.status_sesudah}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{log.catatan.clone().unwrap_or("-".to_string())}</td>
                                     </tr>
                                 }
                             }).collect::<Vec<_>>()}

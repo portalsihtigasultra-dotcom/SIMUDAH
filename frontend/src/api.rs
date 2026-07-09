@@ -267,6 +267,24 @@ pub async fn validate_data_hujan(
         .map_err(|e| e.to_string())
 }
 
+pub async fn list_log_mutu(token: &str, data_id: i64) -> Result<Vec<shared_types::LogMutu>, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{}/api/data-hujan/{}/log", API_BASE, data_id))
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("Gagal memuat log (HTTP {})", resp.status()));
+    }
+
+    resp.json::<Vec<shared_types::LogMutu>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
 pub async fn delete_pos(token: &str, id: i64) -> Result<(), String> {
     let client = reqwest::Client::new();
     let resp = client

@@ -13,8 +13,6 @@ use shared_types::LogMutu;
 
 #[derive(Error, Debug)]
 pub enum LogMutuError {
-    #[error("Not found")]
-    NotFound,
     #[error("Database error")]
     Db(#[from] sqlx::Error),
 }
@@ -22,7 +20,6 @@ pub enum LogMutuError {
 impl IntoResponse for LogMutuError {
     fn into_response(self) -> Response {
         let (status, body) = match &self {
-            LogMutuError::NotFound => (StatusCode::NOT_FOUND, "Log tidak ditemukan"),
             LogMutuError::Db(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error"),
         };
         (status, Json(json!({"error": body}))).into_response()

@@ -99,6 +99,10 @@ pub fn App() -> impl IntoView {
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::data_hujan::EditDataHujan/> })
                 }/>
+                <Route path=path!("/data-hujan/:id/log") view={
+                    let auth = auth.clone();
+                    move || guarded_view(&auth, view! { <pages::data_hujan::LogMutuData/> })
+                }/>
             </Routes>
         </Router>
     }
