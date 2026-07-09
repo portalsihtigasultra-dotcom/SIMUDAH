@@ -25,11 +25,15 @@ pub fn Sidebar() -> impl IntoView {
                 "Kelola Pos"
             </A>
 
+            <A href="/data-hujan" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
+                "Lihat Data Hujan"
+            </A>
+
             {move || {
                 let r = role();
                 match r.as_str() {
                     "petugas" => view! {
-                        <A href="/curah-hujan/input" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
+                        <A href="/data-hujan/input" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
                             "Input Curah Hujan"
                         </A>
                     }.into_any(),
@@ -51,10 +55,6 @@ pub fn Sidebar() -> impl IntoView {
                     _ => view! {}.into_any(),
                 }
             }}
-
-            <A href="/data" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
-                "Semua Data"
-            </A>
 
             <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid #333">
                 <span>{move || auth.user.get().map(|u| u.username).unwrap_or_default()}</span>

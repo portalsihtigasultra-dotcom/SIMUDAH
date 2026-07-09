@@ -84,6 +84,14 @@ pub fn App() -> impl IntoView {
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::curah_hujan::SemuaData/> })
                 }/>
+                <Route path=path!("/data-hujan") view={
+                    let auth = auth.clone();
+                    move || guarded_view(&auth, view! { <pages::data_hujan::ListDataHujan/> })
+                }/>
+                <Route path=path!("/data-hujan/input") view={
+                    let auth = auth.clone();
+                    move || guarded_view(&auth, view! { <pages::data_hujan::InputDataHujan/> })
+                }/>
             </Routes>
         </Router>
     }

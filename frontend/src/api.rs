@@ -95,6 +95,70 @@ pub async fn update_pos(
         .map_err(|e| e.to_string())
 }
 
+pub async fn list_data_hujan(
+    token: &str,
+) -> Result<Vec<shared_types::DataCurahHujan>, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{}/api/data-hujan", API_BASE))
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("Gagal memuat data (HTTP {})", resp.status()));
+    }
+
+    resp.json::<Vec<shared_types::DataCurahHujan>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn create_data_hujan(
+    token: &str,
+    req: shared_types::CreateDataCurahHujanRequest,
+) -> Result<shared_types::DataCurahHujan, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{}/api/data-hujan", API_BASE))
+        .header("Authorization", format!("Bearer {}", token))
+        .json(&req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        let err = resp.json::<serde_json::Value>().await.ok();
+        return Err(err
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.as_str().map(|s| s.to_string()))
+            })
+            .unwrap_or("Gagal menyimpan data".to_string()));
+    }
+
+    resp.json::<shared_types::DataCurahHujan>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_data_hujan(token: &str, id: i64) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .delete(format!("{}/api/data-hujan/{}", API_BASE, id))
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("Gagal menghapus data (HTTP {})", resp.status()));
+    }
+
+    Ok(())
+}
+
 pub async fn delete_pos(token: &str, id: i64) -> Result<(), String> {
     let client = reqwest::Client::new();
     let resp = client
