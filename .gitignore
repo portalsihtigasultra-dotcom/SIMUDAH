@@ -1,0 +1,23 @@
+# Rust build output
+target/
+
+# Environment files with credentials
+.env
+backend/.env
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Project documentation (not for public repo)
+file_pendukung/
+
+# Logs
+*.log
+*.log
+frontend/dist/
