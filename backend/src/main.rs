@@ -76,6 +76,10 @@ async fn main() {
             axum::routing::post(data_hujan::verify_data_hujan),
         )
         .route(
+            "/api/data-hujan/:id/validate",
+            axum::routing::post(data_hujan::validate_data_hujan),
+        )
+        .route(
             "/api/data-hujan/:id/log",
             axum::routing::get(log_mutu::list_log_mutu),
         )

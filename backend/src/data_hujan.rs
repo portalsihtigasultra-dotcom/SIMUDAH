@@ -10,7 +10,9 @@ use thiserror::Error;
 
 use crate::auth::{AppState, AuthUser};
 use crate::log_mutu;
-use shared_types::{CreateDataCurahHujanRequest, DataCurahHujan, VerifyDataRequest};
+use shared_types::{
+    CreateDataCurahHujanRequest, DataCurahHujan, ValidasiDataRequest, VerifyDataRequest,
+};
 
 #[derive(Error, Debug)]
 pub enum DataHujanError {
@@ -57,6 +59,7 @@ fn row_to_data(r: &sqlx::postgres::PgRow) -> DataCurahHujan {
         jam_pengamatan: r.get("jam_pengamatan"),
         petugas_id: r.get("petugas_id"),
         status_mutu: r.get("status_mutu"),
+        nilai_koreksi: r.get("nilai_koreksi"),
     }
 }
 
@@ -65,7 +68,7 @@ pub async fn list_data_hujan(
 ) -> Result<Json<Vec<DataCurahHujan>>, DataHujanError> {
     let rows = sqlx::query(
         r#"SELECT id, pos_id, tanggal::text, nilai_mm,
-           jam_pengamatan::text, petugas_id, status_mutu::text
+           jam_pengamatan::text, petugas_id, status_mutu::text, nilai_koreksi
            FROM data_curah_hujan
            ORDER BY tanggal DESC, id DESC"#,
     )
@@ -84,7 +87,7 @@ pub async fn get_data_hujan(
 ) -> Result<Json<DataCurahHujan>, DataHujanError> {
     let row = sqlx::query(
         r#"SELECT id, pos_id, tanggal::text, nilai_mm,
-           jam_pengamatan::text, petugas_id, status_mutu::text
+           jam_pengamatan::text, petugas_id, status_mutu::text, nilai_koreksi
            FROM data_curah_hujan WHERE id = $1"#,
     )
     .bind(id)
@@ -105,7 +108,7 @@ pub async fn create_data_hujan(
         r#"INSERT INTO data_curah_hujan (pos_id, tanggal, nilai_mm, jam_pengamatan, petugas_id)
         VALUES ($1, $2::date, $3, $4::time, $5)
         RETURNING id, pos_id, tanggal::text, nilai_mm,
-           jam_pengamatan::text, petugas_id, status_mutu::text"#,
+           jam_pengamatan::text, petugas_id, status_mutu::text, nilai_koreksi"#,
     )
     .bind(req.pos_id)
     .bind(&req.tanggal)
@@ -148,7 +151,7 @@ pub async fn update_data_hujan(
             jam_pengamatan = $4::time, updated_at = NOW()
         WHERE id = $5
         RETURNING id, pos_id, tanggal::text, nilai_mm,
-           jam_pengamatan::text, petugas_id, status_mutu::text"#,
+           jam_pengamatan::text, petugas_id, status_mutu::text, nilai_koreksi"#,
     )
     .bind(req.pos_id)
     .bind(&req.tanggal)
@@ -225,9 +228,77 @@ pub async fn verify_data_hujan(
         SET status_mutu = $1::data_status, updated_at = NOW()
         WHERE id = $2
         RETURNING id, pos_id, tanggal::text, nilai_mm,
-           jam_pengamatan::text, petugas_id, status_mutu::text"#,
+           jam_pengamatan::text, petugas_id, status_mutu::text, nilai_koreksi"#,
     )
     .bind(&req.status)
+    .bind(id)
+    .fetch_one(&state.pool)
+    .await?;
+
+    log_mutu::create_log_mutu(
+        &state.pool,
+        id,
+        &old_status,
+        &req.status,
+        user.user_id,
+        req.catatan.as_deref(),
+    )
+    .await?;
+
+    Ok(Json(row_to_data(&row)))
+}
+
+fn can_transition(from: &str, to: &str) -> bool {
+    matches!(
+        (from, to),
+        ("terverifikasi", "tervalidasi")
+            | ("terverifikasi", "terkoreksi")
+            | ("terverifikasi", "ditolak")
+            | ("terkoreksi", "tervalidasi")
+            | ("terkoreksi", "ditolak")
+    )
+}
+
+pub async fn validate_data_hujan(
+    Path(id): Path<i64>,
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Json(req): Json<ValidasiDataRequest>,
+) -> Result<Json<DataCurahHujan>, DataHujanError> {
+    if user.role != "validator" {
+        return Err(DataHujanError::WrongRole);
+    }
+
+    let valid_targets = ["tervalidasi", "terkoreksi", "ditolak"];
+    if !valid_targets.contains(&req.status.as_str()) {
+        return Err(DataHujanError::InvalidTransition);
+    }
+
+    let existing = sqlx::query(
+        "SELECT petugas_id, status_mutu::text FROM data_curah_hujan WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(DataHujanError::NotFound)?;
+
+    let old_status: String = existing.get("status_mutu");
+
+    if !can_transition(&old_status, &req.status) {
+        return Err(DataHujanError::InvalidTransition);
+    }
+
+    let row = sqlx::query(
+        r#"UPDATE data_curah_hujan
+        SET status_mutu = $1::data_status,
+            nilai_koreksi = $2,
+            updated_at = NOW()
+        WHERE id = $3
+        RETURNING id, pos_id, tanggal::text, nilai_mm,
+           jam_pengamatan::text, petugas_id, status_mutu::text, nilai_koreksi"#,
+    )
+    .bind(&req.status)
+    .bind(req.nilai_koreksi)
     .bind(id)
     .fetch_one(&state.pool)
     .await?;

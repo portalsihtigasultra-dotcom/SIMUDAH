@@ -58,6 +58,7 @@ pub struct DataCurahHujan {
     pub jam_pengamatan: Option<String>,
     pub petugas_id: i64,
     pub status_mutu: String,
+    pub nilai_koreksi: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -82,5 +83,12 @@ pub struct LogMutu {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VerifyDataRequest {
     pub status: String,
+    pub catatan: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ValidasiDataRequest {
+    pub status: String,
+    pub nilai_koreksi: Option<f64>,
     pub catatan: Option<String>,
 }
