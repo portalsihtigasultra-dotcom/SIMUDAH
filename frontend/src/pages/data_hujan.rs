@@ -499,3 +499,366 @@ pub fn EditDataHujan() -> impl IntoView {
         </div>
     }
 }
+
+#[component]
+pub fn ValidasiData() -> impl IntoView {
+    let auth = use_context::<AuthContext>().expect("AuthContext not found");
+    let (data_list, set_data_list) = signal(Vec::new());
+    let (pos_map, set_pos_map) = signal(std::collections::HashMap::new());
+    let (loading, set_loading) = signal(true);
+    let (error, set_error) = signal(String::new());
+    let (success, set_success) = signal(String::new());
+    let (submitting_id, set_submitting_id) = signal::<Option<i64>>(None);
+
+    {
+        let token = auth.token.get();
+        set_loading.set(true);
+        spawn_local(async move {
+            if let Some(t) = token {
+                match api::list_data_hujan(&t).await {
+                    Ok(list) => set_data_list.set(list),
+                    Err(e) => set_error.set(e),
+                }
+                if let Ok(pos_list) = api::list_pos(&t).await {
+                    let map: std::collections::HashMap<i64, String> =
+                        pos_list.into_iter().map(|p| (p.id, p.nama)).collect();
+                    set_pos_map.set(map);
+                }
+                set_loading.set(false);
+            }
+        });
+    }
+
+    let do_validate = move |data_id: i64,
+                            target: String,
+                            nilai: String,
+                            catatan: String| {
+        let token = auth.token.get();
+        set_submitting_id.set(Some(data_id));
+        set_error.set(String::new());
+        set_success.set(String::new());
+
+        let nilai_koreksi = if target == "terkoreksi" {
+            nilai.parse::<f64>().ok()
+        } else {
+            None
+        };
+
+        let req = shared_types::ValidasiDataRequest {
+            status: target,
+            nilai_koreksi,
+            catatan: if catatan.is_empty() { None } else { Some(catatan) },
+        };
+
+        spawn_local(async move {
+            if let Some(t) = token {
+                match api::validate_data_hujan(&t, data_id, req).await {
+                    Ok(_) => {
+                        set_success.set("Data berhasil divalidasi.".to_string());
+                        set_submitting_id.set(None);
+                        if let Ok(list) = api::list_data_hujan(&t).await {
+                            set_data_list.set(list);
+                        }
+                    }
+                    Err(e) => {
+                        set_error.set(e);
+                        set_submitting_id.set(None);
+                    }
+                }
+            }
+        });
+    };
+
+    let filtered = move || {
+        let all = data_list.get();
+        all.into_iter()
+            .filter(|d| d.status_mutu == "terverifikasi" || d.status_mutu == "terkoreksi")
+            .collect::<Vec<_>>()
+    };
+
+    view! {
+        <div>
+            <h2>"Validasi & Koreksi Data Curah Hujan"</h2>
+
+            {move || {
+                let msg = success.get();
+                if !msg.is_empty() {
+                    view! { <p style="color: green; background: #d4edda; padding: 8px; border-radius: 4px">{msg}</p> }.into_any()
+                } else {
+                    view! {}.into_any()
+                }
+            }}
+
+            {move || {
+                if loading.get() {
+                    return view! { <p>"Memuat..."</p> }.into_any();
+                }
+                let msg = error.get();
+                if !msg.is_empty() {
+                    return view! { <p style="color: red">{msg}</p> }.into_any();
+                }
+                let items = filtered();
+                if items.is_empty() {
+                    return view! { <p>"Tidak ada data yang perlu divalidasi."</p> }.into_any();
+                }
+                let pm = pos_map.get();
+                view! {
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 16px">
+                        <thead>
+                            <tr style="background: #f5f5f5; text-align: left">
+                                <th style="padding: 8px; border: 1px solid #ddd">"Tanggal"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Pos"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Nilai (mm)"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Status"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Aksi Validasi"</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.into_iter().map(|d| {
+                                let d_id = d.id;
+                                let nama_pos = pm.get(&d.pos_id).cloned().unwrap_or_else(|| d.pos_id.to_string());
+                                let target_status = RwSignal::new(String::new());
+                                let input_koreksi = RwSignal::new(String::new());
+                                let input_catatan = RwSignal::new(String::new());
+                                let is_submitting = move || submitting_id.get() == Some(d_id);
+
+                                view! {
+                                    <tr>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{d.tanggal.clone()}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{nama_pos}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{d.nilai_mm.to_string()}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">
+                                            <span style={
+                                                let s = d.status_mutu.as_str();
+                                                match s {
+                                                    "terverifikasi" => "color: #004085; background: #cce5ff; padding: 2px 6px; border-radius: 3px",
+                                                    "terkoreksi" => "color: #721c24; background: #f8d7da; padding: 2px 6px; border-radius: 3px",
+                                                    _ => "",
+                                                }
+                                            }>{d.status_mutu.clone()}</span>
+                                        </td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">
+                                            <div style="display: flex; flex-direction: column; gap: 6px">
+                                                <select
+                                                    prop:value=target_status
+                                                    on:change=move |ev| target_status.set(event_target_value(&ev))
+                                                    style="padding: 4px"
+                                                >
+                                                    <option value="">"-- Pilih --"</option>
+                                                    <option value="tervalidasi">"Validasi"</option>
+                                                    <option value="terkoreksi">"Koreksi"</option>
+                                                    <option value="ditolak">"Tolak"</option>
+                                                </select>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    placeholder="Nilai koreksi (jika koreksi)"
+                                                    prop:value=input_koreksi
+                                                    on:input=move |ev| input_koreksi.set(event_target_value(&ev))
+                                                    style="padding: 4px"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Catatan (opsional)"
+                                                    prop:value=input_catatan
+                                                    on:input=move |ev| input_catatan.set(event_target_value(&ev))
+                                                    style="padding: 4px"
+                                                />
+                                                <button
+                                                    disabled={move || target_status.get().is_empty() || is_submitting()}
+                                                    on:click={
+                                                        let d_id = d_id;
+                                                        let target_status = target_status;
+                                                        let input_koreksi = input_koreksi;
+                                                        let input_catatan = input_catatan;
+                                                        let do_validate = do_validate.clone();
+                                                        move |_| {
+                                                            do_validate(
+                                                                d_id,
+                                                                target_status.get(),
+                                                                input_koreksi.get(),
+                                                                input_catatan.get(),
+                                                            );
+                                                        }
+                                                    }
+                                                    style="padding: 6px 12px"
+                                                >
+                                                    {move || if is_submitting() { "Memproses..." } else { "Simpan" }}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }).collect::<Vec<_>>()}
+                        </tbody>
+                    </table>
+                }.into_any()
+            }}
+        </div>
+    }
+}
+
+#[component]
+pub fn VerifikasiData() -> impl IntoView {
+    let auth = use_context::<AuthContext>().expect("AuthContext not found");
+    let (data_list, set_data_list) = signal(Vec::new());
+    let (pos_map, set_pos_map) = signal(std::collections::HashMap::new());
+    let (loading, set_loading) = signal(true);
+    let (error, set_error) = signal(String::new());
+    let (success, set_success) = signal(String::new());
+    let (submitting_id, set_submitting_id) = signal::<Option<i64>>(None);
+
+    {
+        let token = auth.token.get();
+        set_loading.set(true);
+        spawn_local(async move {
+            if let Some(t) = token {
+                match api::list_data_hujan(&t).await {
+                    Ok(list) => set_data_list.set(list),
+                    Err(e) => set_error.set(e),
+                }
+                if let Ok(pos_list) = api::list_pos(&t).await {
+                    let map: std::collections::HashMap<i64, String> =
+                        pos_list.into_iter().map(|p| (p.id, p.nama)).collect();
+                    set_pos_map.set(map);
+                }
+                set_loading.set(false);
+            }
+        });
+    }
+
+    let do_verify = move |data_id: i64, target: String, catatan: String| {
+        let token = auth.token.get();
+        set_submitting_id.set(Some(data_id));
+        set_error.set(String::new());
+        set_success.set(String::new());
+
+        let req = shared_types::VerifyDataRequest {
+            status: target,
+            catatan: if catatan.is_empty() { None } else { Some(catatan) },
+        };
+
+        spawn_local(async move {
+            if let Some(t) = token {
+                match api::verify_data_hujan(&t, data_id, req).await {
+                    Ok(_) => {
+                        set_success.set("Data berhasil diverifikasi.".to_string());
+                        set_submitting_id.set(None);
+                        if let Ok(list) = api::list_data_hujan(&t).await {
+                            set_data_list.set(list);
+                        }
+                    }
+                    Err(e) => {
+                        set_error.set(e);
+                        set_submitting_id.set(None);
+                    }
+                }
+            }
+        });
+    };
+
+    let filtered = move || {
+        let all = data_list.get();
+        all.into_iter()
+            .filter(|d| d.status_mutu == "mentah")
+            .collect::<Vec<_>>()
+    };
+
+    view! {
+        <div>
+            <h2>"Verifikasi Data Curah Hujan"</h2>
+
+            {move || {
+                let msg = success.get();
+                if !msg.is_empty() {
+                    view! { <p style="color: green; background: #d4edda; padding: 8px; border-radius: 4px">{msg}</p> }.into_any()
+                } else {
+                    view! {}.into_any()
+                }
+            }}
+
+            {move || {
+                if loading.get() {
+                    return view! { <p>"Memuat..."</p> }.into_any();
+                }
+                let msg = error.get();
+                if !msg.is_empty() {
+                    return view! { <p style="color: red">{msg}</p> }.into_any();
+                }
+                let items = filtered();
+                if items.is_empty() {
+                    return view! { <p>"Tidak ada data yang perlu diverifikasi."</p> }.into_any();
+                }
+                let pm = pos_map.get();
+                view! {
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 16px">
+                        <thead>
+                            <tr style="background: #f5f5f5; text-align: left">
+                                <th style="padding: 8px; border: 1px solid #ddd">"Tanggal"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Pos"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Nilai (mm)"</th>
+                                <th style="padding: 8px; border: 1px solid #ddd">"Aksi Verifikasi"</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.into_iter().map(|d| {
+                                let d_id = d.id;
+                                let nama_pos = pm.get(&d.pos_id).cloned().unwrap_or_else(|| d.pos_id.to_string());
+                                let target_status = RwSignal::new(String::new());
+                                let input_catatan = RwSignal::new(String::new());
+                                let is_submitting = move || submitting_id.get() == Some(d_id);
+
+                                view! {
+                                    <tr>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{d.tanggal.clone()}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{nama_pos}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">{d.nilai_mm.to_string()}</td>
+                                        <td style="padding: 8px; border: 1px solid #ddd">
+                                            <div style="display: flex; flex-direction: column; gap: 6px">
+                                                <select
+                                                    prop:value=target_status
+                                                    on:change=move |ev| target_status.set(event_target_value(&ev))
+                                                    style="padding: 4px"
+                                                >
+                                                    <option value="">"-- Pilih --"</option>
+                                                    <option value="terverifikasi">"Terima (Verifikasi)"</option>
+                                                    <option value="ditolak">"Tolak"</option>
+                                                </select>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Catatan (opsional)"
+                                                    prop:value=input_catatan
+                                                    on:input=move |ev| input_catatan.set(event_target_value(&ev))
+                                                    style="padding: 4px"
+                                                />
+                                                <button
+                                                    disabled={move || target_status.get().is_empty() || is_submitting()}
+                                                    on:click={
+                                                        let d_id = d_id;
+                                                        let target_status = target_status;
+                                                        let input_catatan = input_catatan;
+                                                        let do_verify = do_verify.clone();
+                                                        move |_| {
+                                                            do_verify(
+                                                                d_id,
+                                                                target_status.get(),
+                                                                input_catatan.get(),
+                                                            );
+                                                        }
+                                                    }
+                                                    style="padding: 6px 12px"
+                                                >
+                                                    {move || if is_submitting() { "Memproses..." } else { "Simpan" }}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }).collect::<Vec<_>>()}
+                        </tbody>
+                    </table>
+                }.into_any()
+            }}
+        </div>
+    }
+}

@@ -193,6 +193,35 @@ pub async fn update_data_hujan(
         .map_err(|e| e.to_string())
 }
 
+pub async fn verify_data_hujan(
+    token: &str,
+    id: i64,
+    req: shared_types::VerifyDataRequest,
+) -> Result<shared_types::DataCurahHujan, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{}/api/data-hujan/{}/verify", API_BASE, id))
+        .header("Authorization", format!("Bearer {}", token))
+        .json(&req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        let err = resp.json::<serde_json::Value>().await.ok();
+        return Err(err
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.as_str().map(|s| s.to_string()))
+            })
+            .unwrap_or("Gagal memverifikasi data".to_string()));
+    }
+
+    resp.json::<shared_types::DataCurahHujan>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
 pub async fn delete_data_hujan(token: &str, id: i64) -> Result<(), String> {
     let client = reqwest::Client::new();
     let resp = client
@@ -207,6 +236,35 @@ pub async fn delete_data_hujan(token: &str, id: i64) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+pub async fn validate_data_hujan(
+    token: &str,
+    id: i64,
+    req: shared_types::ValidasiDataRequest,
+) -> Result<shared_types::DataCurahHujan, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(format!("{}/api/data-hujan/{}/validate", API_BASE, id))
+        .header("Authorization", format!("Bearer {}", token))
+        .json(&req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        let err = resp.json::<serde_json::Value>().await.ok();
+        return Err(err
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.as_str().map(|s| s.to_string()))
+            })
+            .unwrap_or("Gagal memvalidasi data".to_string()));
+    }
+
+    resp.json::<shared_types::DataCurahHujan>()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn delete_pos(token: &str, id: i64) -> Result<(), String> {

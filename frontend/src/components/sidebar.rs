@@ -38,19 +38,14 @@ pub fn Sidebar() -> impl IntoView {
                         </A>
                     }.into_any(),
                     "verifikator" => view! {
-                        <A href="/curah-hujan/verifikasi" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
+                        <A href="/data-hujan/verifikasi" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
                             "Verifikasi Data"
                         </A>
                     }.into_any(),
                     "validator" => view! {
-                        <>
-                            <A href="/curah-hujan/validasi" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
-                                "Validasi Data"
-                            </A>
-                            <A href="/curah-hujan/koreksi" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
-                                "Koreksi Data"
-                            </A>
-                        </>
+                        <A href="/data-hujan/validasi" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
+                            "Validasi & Koreksi Data"
+                        </A>
                     }.into_any(),
                     _ => view! {}.into_any(),
                 }

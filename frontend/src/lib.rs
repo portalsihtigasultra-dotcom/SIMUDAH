@@ -75,18 +75,6 @@ pub fn App() -> impl IntoView {
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::curah_hujan::CurahHujanInput/> })
                 }/>
-                <Route path=path!("/curah-hujan/verifikasi") view={
-                    let auth = auth.clone();
-                    move || guarded_view(&auth, view! { <pages::curah_hujan::CurahHujanVerifikasi/> })
-                }/>
-                <Route path=path!("/curah-hujan/validasi") view={
-                    let auth = auth.clone();
-                    move || guarded_view(&auth, view! { <pages::curah_hujan::CurahHujanValidasi/> })
-                }/>
-                <Route path=path!("/curah-hujan/koreksi") view={
-                    let auth = auth.clone();
-                    move || guarded_view(&auth, view! { <pages::curah_hujan::CurahHujanKoreksi/> })
-                }/>
                 <Route path=path!("/data") view={
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::curah_hujan::SemuaData/> })
@@ -98,6 +86,14 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/data-hujan/input") view={
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::data_hujan::InputDataHujan/> })
+                }/>
+                <Route path=path!("/data-hujan/verifikasi") view={
+                    let auth = auth.clone();
+                    move || guarded_view(&auth, view! { <pages::data_hujan::VerifikasiData/> })
+                }/>
+                <Route path=path!("/data-hujan/validasi") view={
+                    let auth = auth.clone();
+                    move || guarded_view(&auth, view! { <pages::data_hujan::ValidasiData/> })
                 }/>
                 <Route path=path!("/data-hujan/:id/edit") view={
                     let auth = auth.clone();
