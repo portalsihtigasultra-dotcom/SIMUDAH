@@ -1,6 +1,19 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct StatusCount {
+    pub status: String,
+    pub count: i64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct CurahHujanOverview {
+    pub total_pos: i64,
+    pub total_data: i64,
+    pub per_status: Vec<StatusCount>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct HealthResponse {
     pub status: String,
 }

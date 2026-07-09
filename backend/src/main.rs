@@ -7,6 +7,7 @@ use tower_http::cors::{Any, CorsLayer};
 mod auth;
 mod data_hujan;
 mod log_mutu;
+mod overview;
 mod pos;
 
 #[tokio::main]
@@ -78,6 +79,10 @@ async fn main() {
         .route(
             "/api/data-hujan/:id/validate",
             axum::routing::post(data_hujan::validate_data_hujan),
+        )
+        .route(
+            "/api/curah-hujan/overview",
+            axum::routing::get(overview::curah_hujan_overview),
         )
         .route(
             "/api/data-hujan/:id/log",

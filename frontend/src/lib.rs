@@ -59,6 +59,10 @@ pub fn App() -> impl IntoView {
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::dashboard::Dashboard/> })
                 }/>
+                <Route path=path!("/curah-hujan") view={
+                    let auth = auth.clone();
+                    move || guarded_view(&auth, view! { <pages::curah_hujan::CurahHujanOverview/> })
+                }/>
                 <Route path=path!("/pos") view={
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::pos::ListPos/> })
@@ -75,10 +79,7 @@ pub fn App() -> impl IntoView {
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::curah_hujan::CurahHujanInput/> })
                 }/>
-                <Route path=path!("/data") view={
-                    let auth = auth.clone();
-                    move || guarded_view(&auth, view! { <pages::curah_hujan::SemuaData/> })
-                }/>
+
                 <Route path=path!("/data-hujan") view={
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::data_hujan::ListDataHujan/> })

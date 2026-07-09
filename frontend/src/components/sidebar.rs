@@ -21,6 +21,10 @@ pub fn Sidebar() -> impl IntoView {
                 "Dashboard"
             </A>
 
+            <A href="/curah-hujan" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
+                "Curah Hujan"
+            </A>
+
             <A href="/pos" attr:style="color: white; text-decoration: none; padding: 8px; border-radius: 4px">
                 "Kelola Pos"
             </A>
