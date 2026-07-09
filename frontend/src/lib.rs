@@ -7,8 +7,15 @@ use auth::AuthContext;
 use leptos::prelude::*;
 use leptos_router::components::{Route, Router, Routes};
 use leptos_router::path;
+use wasm_bindgen::prelude::*;
 
 use components::sidebar::Sidebar;
+
+#[wasm_bindgen(start)]
+pub fn main() {
+    console_error_panic_hook::set_once();
+    leptos::mount::mount_to_body(App);
+}
 
 #[component]
 fn ProtectedLayout(children: Children) -> impl IntoView {
@@ -91,6 +98,10 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/data-hujan/input") view={
                     let auth = auth.clone();
                     move || guarded_view(&auth, view! { <pages::data_hujan::InputDataHujan/> })
+                }/>
+                <Route path=path!("/data-hujan/:id/edit") view={
+                    let auth = auth.clone();
+                    move || guarded_view(&auth, view! { <pages::data_hujan::EditDataHujan/> })
                 }/>
             </Routes>
         </Router>

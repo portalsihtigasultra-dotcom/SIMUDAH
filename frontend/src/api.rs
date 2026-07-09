@@ -143,6 +143,56 @@ pub async fn create_data_hujan(
         .map_err(|e| e.to_string())
 }
 
+pub async fn get_data_hujan(
+    token: &str,
+    id: i64,
+) -> Result<shared_types::DataCurahHujan, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(format!("{}/api/data-hujan/{}", API_BASE, id))
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("Data tidak ditemukan (HTTP {})", resp.status()));
+    }
+
+    resp.json::<shared_types::DataCurahHujan>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn update_data_hujan(
+    token: &str,
+    id: i64,
+    req: shared_types::CreateDataCurahHujanRequest,
+) -> Result<shared_types::DataCurahHujan, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .put(format!("{}/api/data-hujan/{}", API_BASE, id))
+        .header("Authorization", format!("Bearer {}", token))
+        .json(&req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        let err = resp.json::<serde_json::Value>().await.ok();
+        return Err(err
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.as_str().map(|s| s.to_string()))
+            })
+            .unwrap_or("Gagal mengupdate data".to_string()));
+    }
+
+    resp.json::<shared_types::DataCurahHujan>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
 pub async fn delete_data_hujan(token: &str, id: i64) -> Result<(), String> {
     let client = reqwest::Client::new();
     let resp = client
