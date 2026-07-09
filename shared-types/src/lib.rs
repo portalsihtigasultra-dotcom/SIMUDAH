@@ -67,3 +67,20 @@ pub struct CreateDataCurahHujanRequest {
     pub nilai_mm: f64,
     pub jam_pengamatan: Option<String>,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct LogMutu {
+    pub id: i64,
+    pub data_id: i64,
+    pub status_sebelum: String,
+    pub status_sesudah: String,
+    pub diubah_oleh: i64,
+    pub catatan: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct VerifyDataRequest {
+    pub status: String,
+    pub catatan: Option<String>,
+}

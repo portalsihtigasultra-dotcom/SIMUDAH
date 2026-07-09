@@ -9,7 +9,8 @@ use sqlx::Row;
 use thiserror::Error;
 
 use crate::auth::{AppState, AuthUser};
-use shared_types::{CreateDataCurahHujanRequest, DataCurahHujan};
+use crate::log_mutu;
+use shared_types::{CreateDataCurahHujanRequest, DataCurahHujan, VerifyDataRequest};
 
 #[derive(Error, Debug)]
 pub enum DataHujanError {
@@ -19,6 +20,10 @@ pub enum DataHujanError {
     Forbidden,
     #[error("Invalid status")]
     InvalidStatus,
+    #[error("Wrong role")]
+    WrongRole,
+    #[error("Invalid transition")]
+    InvalidTransition,
     #[error("Database error")]
     Db(#[from] sqlx::Error),
 }
@@ -30,6 +35,12 @@ impl IntoResponse for DataHujanError {
             DataHujanError::Forbidden => (StatusCode::FORBIDDEN, "Akses ditolak"),
             DataHujanError::InvalidStatus => {
                 (StatusCode::BAD_REQUEST, "Hanya data mentah yang bisa diubah")
+            }
+            DataHujanError::WrongRole => {
+                (StatusCode::FORBIDDEN, "Anda tidak memiliki wewenang")
+            }
+            DataHujanError::InvalidTransition => {
+                (StatusCode::BAD_REQUEST, "Transisi status tidak valid")
             }
             DataHujanError::Db(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Database error"),
         };
@@ -179,4 +190,57 @@ pub async fn delete_data_hujan(
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn verify_data_hujan(
+    Path(id): Path<i64>,
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Json(req): Json<VerifyDataRequest>,
+) -> Result<Json<DataCurahHujan>, DataHujanError> {
+    if user.role != "verifikator" {
+        return Err(DataHujanError::WrongRole);
+    }
+
+    let valid_statuses = ["terverifikasi", "ditolak"];
+    if !valid_statuses.contains(&req.status.as_str()) {
+        return Err(DataHujanError::InvalidTransition);
+    }
+
+    let existing = sqlx::query(
+        "SELECT petugas_id, status_mutu::text FROM data_curah_hujan WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(DataHujanError::NotFound)?;
+
+    let old_status: String = existing.get("status_mutu");
+    if old_status != "mentah" {
+        return Err(DataHujanError::InvalidStatus);
+    }
+
+    let row = sqlx::query(
+        r#"UPDATE data_curah_hujan
+        SET status_mutu = $1::data_status, updated_at = NOW()
+        WHERE id = $2
+        RETURNING id, pos_id, tanggal::text, nilai_mm,
+           jam_pengamatan::text, petugas_id, status_mutu::text"#,
+    )
+    .bind(&req.status)
+    .bind(id)
+    .fetch_one(&state.pool)
+    .await?;
+
+    log_mutu::create_log_mutu(
+        &state.pool,
+        id,
+        &old_status,
+        &req.status,
+        user.user_id,
+        req.catatan.as_deref(),
+    )
+    .await?;
+
+    Ok(Json(row_to_data(&row)))
 }
